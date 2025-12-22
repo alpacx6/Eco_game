@@ -906,17 +906,25 @@ function update(dt){
   if (left) player.direction = -1;
   if (right) player.direction = 1;
 
-  const accelBase = 1.65;
-  const maxSpd = world.maxSpeedBase * getSpeedMultiplier();
+  const k = dt / 16.6667;
 
-  const suffMul = isSuffocating ? 0.72 : 1.00;
+const accelBase = 1.65;
+const maxSpd = world.maxSpeedBase * getSpeedMultiplier();
 
-  if (left) player.vx -= accelBase * suffMul;
-  if (right) player.vx += accelBase * suffMul;
+const suffMul = isSuffocating ? 0.72 : 1.00;
 
-  const nearGround = player.y + player.h > 390;
-  player.vx *= nearGround ? world.frictionNearGround : 0.90;
-  player.vx = clamp(player.vx, -maxSpd*suffMul, maxSpd*suffMul);
+// 가속: 프레임 기반 -> dt 기반 보정
+if (left)  player.vx -= accelBase * suffMul * k;
+if (right) player.vx += accelBase * suffMul * k;
+
+// 마찰: 프레임마다 곱하는 방식 -> dt에 맞게 거듭제곱 보정
+const nearGround = player.y + player.h > 390;
+const friction = nearGround ? world.frictionNearGround : 0.90;
+player.vx *= Math.pow(friction, k);
+
+// 속도 제한
+player.vx = clamp(player.vx, -maxSpd * suffMul, maxSpd * suffMul);
+
 
   if (jumpPressed){
     if (player.onGround){
@@ -929,11 +937,14 @@ function update(dt){
     }
   }
 
-  player.vy += GRAV;
-  player.vy = clamp(player.vy, -30, 20);
+  player.vy += GRAV * k;
+player.vy = clamp(player.vy, -30, 20);
 
-  player.x += player.vx;
-  player.y += player.vy;
+// 위치 업데이트: 프레임 기반 -> dt 기반 보정
+player.x += player.vx * k;
+player.y += player.vy * k;
+
+player.x = clamp(player.x, 0, world.length - player.w);
   player.x = clamp(player.x, 0, world.length - player.w);
 
   player.onGround = false;
